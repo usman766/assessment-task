@@ -24,9 +24,9 @@ class WebhookController extends Controller
         try {
             $data = $request->all();
             $this->orderService->processOrder($data);
-            return response()->json(['message' => 'Order processed successfully']);
+            return response()->json(['message' => 'Order processed']);
         } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
+            return response()->json(['error' => $e], 500);
         }
     }
 }

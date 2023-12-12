@@ -17,9 +17,8 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id');
             $table->foreignId('merchant_id');
-            // Prefer using decimal instead of float for financial values.
-            // Explanation: Floats may have precision issues and are not ideal for representing exact decimal values, especially in financial calculations.
-            $table->decimal('commission_rate', 7, 3); // Adjust precision and scale as needed
+             // keeping the limitation of floats in mind ,urge me to use decimals
+            $table->decimal('commission_rate', 7, 3);
             $table->string('discount_code');
             $table->timestamps();
         });

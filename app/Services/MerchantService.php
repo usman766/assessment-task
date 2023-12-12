@@ -22,15 +22,20 @@ class MerchantService
      */
     public function register(array $data): Merchant
     {
-        $user = $this->createMerchantUser($data);
+        try {
+            $user = $this->createMerchantUser($data);
 
-        return Merchant::create([
-            'user_id' => $user->id,
-            'domain' => $data['domain'],
-            'display_name' => $data['name'],
-            'turn_customers_into_affiliates' => true,
-            'default_commission_rate' => 0.1,
-        ]);
+            $merchant = new Merchant();
+            $merchant->user_id = $user->id;
+            $merchant->domain = $data['domain'];
+            $merchant->display_name = $data['name'];
+            $merchant->turn_customers_into_affiliates = true;
+            $merchant->default_commission_rate = 0.1;
+            $merchant->save();
+            return  $merchant;
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e], 500);
+        }
     }
 
     /**
@@ -53,7 +58,10 @@ class MerchantService
      */
     public function findMerchantByEmail(string $email): ?Merchant
     {
-        $user = User::where('email', $email)->first();
+        $user = User::where([
+            ['email', $email],
+            ['type', User::TYPE_MERCHANT]
+        ])->first();
         return optional($user)->merchant;
     }
 
@@ -130,11 +138,15 @@ class MerchantService
      */
     private function createMerchantUser(array $data): User
     {
-        return User::create([
-            'name' => $data['name'],
-            'email' => $data['email'],
-            'password' => ($data['api_key']),
-            'type' => User::TYPE_MERCHANT,
-        ]);
+
+        $user = new User();
+
+        $user->name = $data['name'];
+        $user->email =  $data['email'];
+        $user->password =  ($data['api_key']);
+        $user->type =  User::TYPE_MERCHANT;
+        $user->save();
+
+        return $user;
     }
 }
