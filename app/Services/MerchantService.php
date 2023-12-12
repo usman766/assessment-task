@@ -7,6 +7,8 @@ use App\Models\Affiliate;
 use App\Models\Merchant;
 use App\Models\Order;
 use App\Models\User;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\Hash;
 
 class MerchantService
 {
@@ -20,7 +22,15 @@ class MerchantService
      */
     public function register(array $data): Merchant
     {
-        // TODO: Complete this method
+        $user = $this->createMerchantUser($data);
+
+        return Merchant::create([
+            'user_id' => $user->id,
+            'domain' => $data['domain'],
+            'display_name' => $data['name'],
+            'turn_customers_into_affiliates' => true,
+            'default_commission_rate' => 0.1,
+        ]);
     }
 
     /**
@@ -31,7 +41,7 @@ class MerchantService
      */
     public function updateMerchant(User $user, array $data)
     {
-        // TODO: Complete this method
+        $this->updateUserAndMerchant($user, $data);
     }
 
     /**
@@ -43,7 +53,8 @@ class MerchantService
      */
     public function findMerchantByEmail(string $email): ?Merchant
     {
-        // TODO: Complete this method
+        $user = User::where('email', $email)->first();
+        return optional($user)->merchant;
     }
 
     /**
@@ -55,6 +66,75 @@ class MerchantService
      */
     public function payout(Affiliate $affiliate)
     {
-        // TODO: Complete this method
+        $unpaidOrders = Order::where([
+            ['affiliate_id', '=', $affiliate->id],
+            ['payout_status', '=', Order::STATUS_UNPAID],
+        ])
+            ->get();
+
+        $unpaidOrders->each(function ($order) {
+            dispatch(new PayoutOrderJob($order));
+        });
+    }
+    /**
+     * Get order statistics for a specific time range.
+     *
+     * @param Carbon $from Start date of the time range.
+     * @param Carbon $to   End date of the time range.
+     *
+     * @return array{
+     *     count: int,               // The total number of orders within the specified time range.
+     *     commission_owed: float,   // Total commission owed to affiliates for orders within the time range.
+     *     revenue: float            // Total revenue generated from orders within the time range.
+     * }
+     */
+    public function getOrderStats(Carbon $from, Carbon $to): array
+    {
+        $orders = Order::whereBetween('created_at', [$from, $to])->get();
+
+        $affiliateCommissionOwed = $orders->whereNotNull('affiliate_id')->sum('commission_owed');
+
+        return [
+            'count' => $orders->count(),
+            'commission_owed' => $affiliateCommissionOwed,
+            'revenue' => $orders->sum('subtotal'),
+        ];
+    }
+    /**
+     * Update the user and associated merchant with the provided data.
+     *
+     * @param User $user The user to be updated.
+     * @param array $data The data to update the user and merchant.
+     *
+     * @return void
+     */
+    private function updateUserAndMerchant(User $user, array $data)
+    {
+        $user->update([
+            'name' => $data['name'],
+            'email' => $data['email'],
+            'password' =>  Hash::make($data['api_key']),
+        ]);
+
+        $user->merchant->update([
+            'domain' => $data['domain'],
+            'display_name' => $data['name'],
+        ]);
+    }
+
+    /**
+     * Create a new user for the merchant.
+     *
+     * @param array $data
+     * @return User
+     */
+    private function createMerchantUser(array $data): User
+    {
+        return User::create([
+            'name' => $data['name'],
+            'email' => $data['email'],
+            'password' => ($data['api_key']),
+            'type' => User::TYPE_MERCHANT,
+        ]);
     }
 }

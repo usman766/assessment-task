@@ -46,7 +46,7 @@ class OrderServiceTest extends TestCase
         /** @var Affiliate $affiliate */
         $affiliate = Affiliate::factory()
             ->for($this->merchant)
-            ->for(User::factory())
+            ->for(User::factory(['email' => $data['customer_email']]))
             ->create([
                 'discount_code' => $data['discount_code']
             ]);
@@ -62,8 +62,7 @@ class OrderServiceTest extends TestCase
             'subtotal' => $data['subtotal_price'],
             'affiliate_id' => $affiliate->id,
             'merchant_id' => $this->merchant->id,
-            'commission_owed' => $data['subtotal_price'] * $affiliate->commission_rate,
-            'external_order_id' => $data['order_id']
+            'commission_owed' => $data['subtotal_price'] * 0.1,
         ]);
     }
 
@@ -73,9 +72,8 @@ class OrderServiceTest extends TestCase
         $order = Order::factory()
             ->for(Merchant::factory()->for(User::factory()))
             ->create();
-
         $data = [
-            'order_id' => $order->external_order_id,
+            'order_id' => $order->id,
             'subtotal_price' => round(rand(100, 999) / 3, 2),
             'merchant_domain' => $this->merchant->domain,
             'discount_code' => $this->faker->uuid(),

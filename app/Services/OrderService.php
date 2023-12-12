@@ -11,7 +11,8 @@ class OrderService
 {
     public function __construct(
         protected AffiliateService $affiliateService
-    ) {}
+    ) {
+    }
 
     /**
      * Process an order and log any commissions.
@@ -23,6 +24,49 @@ class OrderService
      */
     public function processOrder(array $data)
     {
-        // TODO: Complete this method
+        if (Order::where('id', $data['order_id'])->exists()) {
+            return;
+        }
+        $affiliate = $this->findOrCreateAffiliate($data);
+
+        $this->affiliateService->register(
+            Merchant::where('domain', $data['merchant_domain'])->first(),
+            $data['customer_email'],
+            $data['customer_name'],
+            0.1
+        );
+
+        Order::create([
+            'order_id' => $data['order_id'],
+            'subtotal' => $data['subtotal_price'],
+            'affiliate_id' => $affiliate->id,
+            'merchant_id' => $affiliate->merchant_id,
+            'commission_owed' => $data['subtotal_price'] *  0.1
+        ]);
+    }
+
+    protected function findOrCreateAffiliate(array $data): Affiliate
+    {
+        return Affiliate::firstOrCreate(
+            [
+                'user_id' => $this->findOrCreateUser($data)->id,
+                'merchant_id' => Merchant::where('domain', $data['merchant_domain'])->value('id'),
+            ],
+            [
+                'discount_code' => $data['discount_code'],
+                'commission_rate' => 0.1,
+            ]
+        );
+    }
+
+    protected function findOrCreateUser(array $data): User
+    {
+        return User::firstOrCreate(
+            ['email' => $data['customer_email']],
+            [
+                'name' => $data['customer_name'],
+                'type' => User::TYPE_AFFILIATE,
+            ]
+        );
     }
 }

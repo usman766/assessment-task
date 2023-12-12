@@ -27,6 +27,38 @@ class AffiliateService
      */
     public function register(Merchant $merchant, string $email, string $name, float $commissionRate): Affiliate
     {
-        // TODO: Complete this method
+        $this->validateEmail($email);
+
+        $affiliate = new Affiliate([
+            'merchant_id' => $merchant->id,
+            'user_id' => $merchant->user_id,
+            'commission_rate' => $commissionRate,
+            'discount_code' => $this->apiService->createDiscountCode($merchant)['code'],
+        ]);
+
+        $affiliate->save();
+
+        Mail::to($email)->send(new AffiliateCreated($affiliate));
+
+        return $affiliate;
+    }
+
+    private function validateEmail(string $email): void
+    {
+        $merchantCount = $this->getUserCountByEmailAndType($email, User::TYPE_MERCHANT);
+        $affiliateCount = $this->getUserCountByEmailAndType($email, User::TYPE_AFFILIATE);
+
+        if ($merchantCount > 0) {
+            throw new AffiliateCreateException('Email is already in use as a merchant.');
+        }
+
+        if ($affiliateCount > 0) {
+            throw new AffiliateCreateException('Email is already in use as an affiliate.');
+        }
+    }
+
+    private function getUserCountByEmailAndType(string $email, string $type): int
+    {
+        return User::where('email', $email)->where('type', $type)->count();
     }
 }
